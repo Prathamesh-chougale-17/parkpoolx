@@ -35,7 +35,7 @@ export function TimePicker({
 
   const [selectedMinute, setSelectedMinute] = React.useState<string>(() => {
     if (value) {
-      const [_, minute] = value.split(":");
+      const [, minute] = value.split(":");
       return minute;
     }
     return "";
