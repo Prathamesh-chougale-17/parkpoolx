@@ -207,15 +207,15 @@ export default function RequestParkingPage() {
                     onOpenChange={() => field.onBlur()}
                   >
                     <FormControl>
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full cursor-pointer">
                         <SelectValue placeholder="Select an option" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="yes">
+                      <SelectItem value="yes" className="cursor-pointer">
                         Yes, I can offer a ride
                       </SelectItem>
-                      <SelectItem value="no">
+                      <SelectItem value="no" className="cursor-pointer">
                         No, just parking for me
                       </SelectItem>
                     </SelectContent>

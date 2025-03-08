@@ -67,13 +67,13 @@ export function TimePicker({
           onValueChange={setSelectedHour}
           disabled={disabled}
         >
-          <SelectTrigger id="hour" className="w-[80px]">
+          <SelectTrigger id="hour" className="w-[80px] cursor-pointer">
             <SelectValue placeholder="Hour" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
               {hours.map((hour) => (
-                <SelectItem key={hour} value={hour}>
+                <SelectItem key={hour} value={hour} className="cursor-pointer">
                   {hour}
                 </SelectItem>
               ))}
@@ -91,13 +91,17 @@ export function TimePicker({
           onValueChange={setSelectedMinute}
           disabled={disabled}
         >
-          <SelectTrigger id="minute" className="w-[80px]">
+          <SelectTrigger id="minute" className="w-[80px] cursor-pointer">
             <SelectValue placeholder="Min" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
               {minutes.map((minute) => (
-                <SelectItem key={minute} value={minute}>
+                <SelectItem
+                  key={minute}
+                  value={minute}
+                  className="cursor-pointer"
+                >
                   {minute}
                 </SelectItem>
               ))}

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ParkPoolX - Smart Parking & Carpooling System",
+  title: "ParkPoolX",
   description:
     "Optimize parking and reduce congestion with our smart parking and carpooling management system.",
 };
