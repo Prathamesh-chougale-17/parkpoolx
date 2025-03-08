@@ -44,7 +44,6 @@ const navItems = [
 export function Navbar({ className }: NavbarProps) {
   const activePath = usePathname();
   const { data: session } = useSession();
-  console.log(session?.user.role);
 
   return (
     <header
