@@ -32,6 +32,9 @@ importers:
       '@radix-ui/react-slot':
         specifier: ^1.1.2
         version: 1.1.2(@types/react@19.0.10)(react@19.0.0)
+      bcryptjs:
+        specifier: ^3.0.2
+        version: 3.0.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -47,6 +50,9 @@ importers:
       lucide-react:
         specifier: ^0.479.0
         version: 0.479.0(react@19.0.0)
+      mongodb:
+        specifier: ^6.14.2
+        version: 6.14.2
       next:
         specifier: 15.2.2-canary.3
         version: 15.2.2-canary.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -102,18 +108,12 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.0.4(@types/react@19.0.10)
-      bcryptjs:
-        specifier: ^3.0.2
-        version: 3.0.2
       eslint:
         specifier: ^9
         version: 9.21.0(jiti@2.4.2)
       eslint-config-next:
         specifier: 15.2.2-canary.3
         version: 15.2.2-canary.3(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2)
-      mongodb:
-        specifier: ^6.14.2
-        version: 6.14.2
       tailwindcss:
         specifier: ^4
         version: 4.0.12
