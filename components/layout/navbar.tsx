@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 interface NavItemProps {
   href: string;
   label: string;
@@ -42,6 +43,8 @@ const navItems = [
 
 export function Navbar({ className }: NavbarProps) {
   const activePath = usePathname();
+  const { data: session } = useSession();
+  console.log(session?.user.role);
 
   return (
     <header
@@ -79,9 +82,21 @@ export function Navbar({ className }: NavbarProps) {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button size="sm" className="hidden md:flex">
-            Sign In
-          </Button>
+          {session ? (
+            <Button
+              onClick={() => signOut()}
+              variant={"ghost"}
+              className="cursor-pointer"
+            >
+              Logout
+            </Button>
+          ) : (
+            <Link href="/login">
+              <Button variant={"ghost"} className="cursor-pointer">
+                Login
+              </Button>
+            </Link>
+          )}
 
           {/* Mobile Menu */}
           <Sheet>
@@ -118,7 +133,11 @@ export function Navbar({ className }: NavbarProps) {
                       {item.label}
                     </Link>
                   ))}
-                  <Button className="mt-4 w-full">Sign In</Button>
+                  <Link href="/login">
+                    <Button size="sm" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
                 </nav>
               </div>
             </SheetContent>
