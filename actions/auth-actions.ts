@@ -226,6 +226,7 @@ export async function registerUser(
       isHITAttempted: false,
       isCourseStarted: false,
       role: "user" as const,
+      pastParkingVisits: 0,
     };
 
     const client = await clientPromise;

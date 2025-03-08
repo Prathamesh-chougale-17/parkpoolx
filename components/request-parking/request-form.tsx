@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { submitParkingRequest } from "@/actions/request-action";
 
 // Type definitions
 interface FormErrorAlertProps {
@@ -36,12 +37,12 @@ interface FormErrorAlertProps {
 // Form schema using zod
 const parkingFormSchema = z
   .object({
-    arrivalTime: z
+    departTimeFromHome: z
       .string({
         required_error: "Please select an arrival time.",
       })
       .min(1, "Please select an arrival time."),
-    departureTime: z
+    departureTimeFromOffice: z
       .string({
         required_error: "Please select a departure time.",
       })
@@ -72,14 +73,14 @@ const parkingFormSchema = z
   .refine(
     (data) => {
       // Check if departure time is after arrival time
-      if (data.arrivalTime && data.departureTime) {
-        return data.departureTime > data.arrivalTime;
+      if (data.departTimeFromHome && data.departureTimeFromOffice) {
+        return data.departureTimeFromOffice > data.departTimeFromHome;
       }
       return true;
     },
     {
       message: "Departure time must be after arrival time.",
-      path: ["departureTime"],
+      path: ["departureTimeFromOffice"],
     }
   );
 
@@ -103,8 +104,8 @@ export default function RequestParkingPage() {
 
   // Default form values
   const defaultValues: Partial<ParkingFormValues> = {
-    arrivalTime: "",
-    departureTime: "",
+    departTimeFromHome: "",
+    departureTimeFromOffice: "",
     carpoolOffer: "",
     seatsAvailable: "",
   };
@@ -123,14 +124,16 @@ export default function RequestParkingPage() {
       setFormError(null);
       setIsSubmitting(true);
 
-      // Handle the form submission
-      console.log("Form submitted:", data);
-      // TODO: Add API call to submit the form data
+      // Call the server action to submit the form data
+      const result = await submitParkingRequest(data);
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success("Parking slot booked successfully!");
-      // Success handling
+      if (result.success) {
+        toast.success(result.message);
+        // Reset form after successful submission
+        form.reset(defaultValues);
+      } else {
+        setFormError(result.message);
+      }
     } catch (error) {
       console.error("Form submission error:", error);
       setFormError("Failed to book parking slot. Please try again.");
@@ -155,7 +158,7 @@ export default function RequestParkingPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
-              name="arrivalTime"
+              name="departTimeFromHome"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Arrival Time</FormLabel>
@@ -173,7 +176,7 @@ export default function RequestParkingPage() {
 
             <FormField
               control={form.control}
-              name="departureTime"
+              name="departureTimeFromOffice"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Departure Time</FormLabel>
