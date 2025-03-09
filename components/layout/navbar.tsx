@@ -39,11 +39,18 @@ const navItems = [
   { href: "/request-parking", label: "Request Parking" },
   { href: "/allotted-parking", label: "Allotted Parking" },
   { href: "/car-pooling", label: "Car Pooling" },
+  { href: "/admin/control-panel", label: "Control Panel", role: "admin" },
 ];
 
 export function Navbar({ className }: NavbarProps) {
   const activePath = usePathname();
   const { data: session } = useSession();
+  const userRole = session?.user?.role;
+
+  // Filter nav items based on user role
+  const filteredNavItems = navItems.filter(
+    (item) => !item.role || item.role === userRole
+  );
 
   return (
     <header
@@ -68,7 +75,7 @@ export function Navbar({ className }: NavbarProps) {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavItem
               key={item.href}
               href={item.href}
@@ -118,7 +125,7 @@ export function Navbar({ className }: NavbarProps) {
                   <span className="font-bold">ParkPoolX</span>
                 </Link>
                 <nav className="flex flex-col gap-4">
-                  {navItems.map((item) => (
+                  {filteredNavItems.map((item) => (
                     <Link
                       key={item.href}
                       href={item.href}

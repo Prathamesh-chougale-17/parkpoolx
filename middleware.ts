@@ -36,6 +36,12 @@ export default auth((req) => {
     return NextResponse.next(); // Allow the request to proceed
   }
 
+  // redirect the user from admin to dashboard
+  if (pathname.startsWith("/admin") && !(isAuth?.user.role === "admin")) {
+    const dashboardUrl = new URL("/", req.nextUrl.origin);
+    return NextResponse.redirect(dashboardUrl);
+  }
+
   // Redirect authenticated users trying to access login page to dashboard
   if (isAuth && isAuthenticationRoute(pathname)) {
     const dashboardUrl = new URL("/", req.nextUrl.origin);

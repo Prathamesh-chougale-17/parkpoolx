@@ -73,16 +73,12 @@ export async function submitParkingRequest(data: ParkingFormValues) {
     // Check if the user has already booked a parking slot for the day
     const existingRequest = await db.collection("parkingRequests").findOne({
       userId: User.user.id,
-      createdAt: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        $lte: new Date(new Date().setHours(23, 59, 59, 999)),
-      },
     });
 
     if (existingRequest) {
       return {
         success: false,
-        message: "You have already booked a parking slot for today.",
+        message: "You have already requested a parking slot.",
       };
     }
     // Add timestamp and status to the data
@@ -100,7 +96,7 @@ export async function submitParkingRequest(data: ParkingFormValues) {
     // Insert the data into the parkingRequests collection
     await db.collection("parkingRequests").insertOne(documentToInsert);
 
-    return { success: true, message: "Parking slot booked successfully!" };
+    return { success: true, message: "Parking slot requested successfully!" };
   } catch (error) {
     console.error("Error submitting parking request:", error);
     if (error instanceof z.ZodError) {
@@ -113,7 +109,7 @@ export async function submitParkingRequest(data: ParkingFormValues) {
 
     return {
       success: false,
-      message: "Failed to book parking slot. Please try again.",
+      message: "Failed to request parking slot. Please try again.",
     };
   }
 }
