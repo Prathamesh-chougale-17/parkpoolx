@@ -17,7 +17,7 @@ const RequestPage = () => {
           <div className="w-full md:w-1/2 flex justify-center">
             <div className="relative w-full aspect-square max-w-md">
               <Image
-                src="/placeholder.svg"
+                src="/placeholder2.jpg"
                 alt="Parking illustration"
                 fill
                 className="object-contain"

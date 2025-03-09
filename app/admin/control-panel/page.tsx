@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import clientPromise from "@/db/clientpromise";
 
 // Define types for our data
 type ControlItem = {
@@ -65,7 +63,6 @@ export default function ControlPanel() {
   });
   const [isAdding, setIsAdding] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const router = useRouter();
 
   // Load data when component mounts
   useEffect(() => {

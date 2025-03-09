@@ -4,6 +4,13 @@ import { z } from "zod";
 import clientPromise from "@/db/clientpromise";
 import { auth } from "@/auth";
 
+// Location schema
+const locationSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+  address: z.string().optional(),
+});
+
 // Form schema using zod
 const parkingFormSchema = z
   .object({
@@ -24,6 +31,8 @@ const parkingFormSchema = z
       })
       .min(1, "Please select an option."),
     seatsAvailable: z.string().optional(),
+    startLocation: locationSchema.optional(),
+    endLocation: locationSchema.optional(),
   })
   .refine(
     (data) => {
@@ -42,6 +51,19 @@ const parkingFormSchema = z
   )
   .refine(
     (data) => {
+      if (data.carpoolOffer === "yes" && !data.startLocation) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Please select your starting location.",
+      path: ["startLocation"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Check if departure time is after arrival time
       if (data.departTimeFromHome && data.departureTimeFromOffice) {
         return data.departureTimeFromOffice > data.departTimeFromHome;
       }

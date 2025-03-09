@@ -31,9 +31,7 @@ const AllottedParkingPage = async ({
 }) => {
   const searchQuery = (await searchParams).search || "";
   const userStatus = await getUserAllocationStatus();
-  const { allocations = [], error: allocationsError } = await getAllAllocations(
-    searchQuery
-  );
+  const { allocations = [] } = await getAllAllocations(searchQuery);
 
   let statusMessage = "";
   let statusTitle = "";
@@ -166,7 +164,7 @@ const AllottedParkingPage = async ({
                     Search results for:
                   </span>
                   <Badge variant="secondary" className="font-normal">
-                    "{searchQuery}"
+                    &quot;{searchQuery}&quot;
                   </Badge>
                   <Button
                     variant="ghost"

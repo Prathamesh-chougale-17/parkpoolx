@@ -35,7 +35,7 @@ export function HeroSection() {
           </div>
           <div className="relative w-full h-[300px] sm:h-[400px] lg:h-[500px]">
             <Image
-              src="/placeholder.svg"
+              src="/placeholder.jpg"
               alt="Smart parking illustration"
               fill
               className="object-contain"

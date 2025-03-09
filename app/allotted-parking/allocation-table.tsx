@@ -69,7 +69,7 @@ export default function AllocationTable({ allocations }: AllocationTableProps) {
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Search results for:</span>
               <Badge variant="secondary" className="font-normal">
-                "{searchQuery}"
+                &quot;{searchQuery}&quot;
               </Badge>
             </div>
           </div>

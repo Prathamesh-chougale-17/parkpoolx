@@ -28,6 +28,25 @@ import { Suspense } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { submitParkingRequest } from "@/actions/request-action";
+import dynamic from "next/dynamic";
+import { Location } from "@/actions/carpool-actions";
+import { MapPin } from "lucide-react";
+
+// Dynamically import LeafletComponents with SSR disabled
+const LeafletComponents = dynamic(
+  () =>
+    import("@/components/car-pooling/leaflet-components").then(
+      (mod) => mod.LeafletComponents
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] border rounded-md bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
+    ),
+  }
+);
 
 // Type definitions
 interface FormErrorAlertProps {
@@ -54,6 +73,13 @@ const parkingFormSchema = z
       })
       .min(1, "Please select an option."),
     seatsAvailable: z.string().optional(),
+    startLocation: z
+      .object({
+        lat: z.number(),
+        lng: z.number(),
+        address: z.string().optional(),
+      })
+      .optional(),
   })
   .refine(
     (data) => {
@@ -68,6 +94,18 @@ const parkingFormSchema = z
     {
       message: "Please enter a valid number of seats greater than 0.",
       path: ["seatsAvailable"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.carpoolOffer === "yes" && !data.startLocation) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Please select your starting location.",
+      path: ["startLocation"],
     }
   )
   .refine(
@@ -97,10 +135,18 @@ function FormErrorAlert({ message }: FormErrorAlertProps) {
   );
 }
 
+// Fixed destination location
+const DESTINATION_LOCATION = {
+  lat: 18.5204,
+  lng: 73.8567,
+  address: "Pune, Maharashtra, India",
+};
+
 // Main component
 export default function RequestParkingPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
 
   // Default form values
   const defaultValues: Partial<ParkingFormValues> = {
@@ -108,6 +154,7 @@ export default function RequestParkingPage() {
     departureTimeFromOffice: "",
     carpoolOffer: "",
     seatsAvailable: "",
+    startLocation: undefined,
   };
 
   const form = useForm<ParkingFormValues>({
@@ -116,21 +163,35 @@ export default function RequestParkingPage() {
     mode: "onBlur", // Validate on blur for better UX
   });
 
-  // Watch the carpoolOffer field to conditionally show the seats input
+  // Watch the carpoolOffer field to conditionally show additional fields
   const carpoolOfferValue = form.watch("carpoolOffer");
+
+  // Handle location selection
+  const handleLocationSelect = (location: Location) => {
+    setUserLocation(location);
+    form.setValue("startLocation", location, { shouldValidate: true });
+  };
 
   async function onSubmit(data: ParkingFormValues) {
     try {
       setFormError(null);
       setIsSubmitting(true);
 
+      // Set destination location for all users offering carpooling
+      const formData = {
+        ...data,
+        endLocation:
+          data.carpoolOffer === "yes" ? DESTINATION_LOCATION : undefined,
+      };
+
       // Call the server action to submit the form data
-      const result = await submitParkingRequest(data);
+      const result = await submitParkingRequest(formData);
 
       if (result.success) {
         toast.success(result.message);
         // Reset form after successful submission
         form.reset(defaultValues);
+        setUserLocation(null);
       } else {
         setFormError(result.message);
       }
@@ -203,6 +264,7 @@ export default function RequestParkingPage() {
                       field.onChange(value);
                       if (value !== "yes") {
                         form.setValue("seatsAvailable", "");
+                        form.setValue("startLocation", undefined);
                       }
                     }}
                     value={field.value}
@@ -232,29 +294,66 @@ export default function RequestParkingPage() {
             />
 
             {carpoolOfferValue === "yes" && (
-              <FormField
-                control={form.control}
-                name="seatsAvailable"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Number of seats available</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="Enter number of seats"
-                        {...field}
-                        disabled={isSubmitting}
-                        onBlur={field.onBlur}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      How many passengers can you accommodate?
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="seatsAvailable"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of seats available</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="Enter number of seats"
+                          {...field}
+                          disabled={isSubmitting}
+                          onBlur={field.onBlur}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        How many passengers can you accommodate?
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="startLocation"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Your Starting Location</FormLabel>
+                      <FormControl>
+                        <div className="mt-1">
+                          <LeafletComponents
+                            location={userLocation}
+                            onLocationSelect={handleLocationSelect}
+                          />
+                        </div>
+                      </FormControl>
+                      <FormDescription>
+                        Click on the map to set your pickup location or allow
+                        automatic detection
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="bg-muted/50 p-4 rounded-md border flex items-start gap-2">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="font-medium">
+                      Destination: {DESTINATION_LOCATION.address}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This is the fixed destination for all carpooling services.
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
 
             <Button

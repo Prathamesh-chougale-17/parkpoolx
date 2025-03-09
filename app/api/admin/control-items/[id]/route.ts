@@ -4,10 +4,10 @@ import { ObjectId } from "mongodb";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id;
+    const id = (await params).id;
     const data = await request.json();
 
     // Validate the incoming data
@@ -19,7 +19,7 @@ export async function PUT(
     }
 
     const client = await clientPromise;
-    const db = await client.db("parkpoolx");
+    const db = client.db("parkpoolx");
     const collection = db.collection("control-panel");
 
     // Update the item
