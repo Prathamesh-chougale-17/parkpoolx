@@ -301,7 +301,15 @@ export async function getProviderRideRequests() {
       ])
       .toArray();
 
-    return { requests };
+    // Return the provider's route information along with requests
+    return {
+      requests,
+      providerData: {
+        startLocation: parkingRequest.startLocation,
+        endLocation: parkingRequest.endLocation,
+        route: parkingRequest.route || [],
+      },
+    };
   } catch (error) {
     console.error("Error fetching ride requests:", error);
     return { error: "Failed to fetch ride requests" };
@@ -348,14 +356,24 @@ export async function updateRideRequestStatus(
       .collection("carpool")
       .updateOne({ _id: new ObjectId(requestId) }, { $set: { status } });
 
-    // If accepted, decrement available seats
+    // If accepted:
+    // 1. Decrement available seats
+    // 2. Remove all other pending requests from this seeker
     if (status === "accepted") {
+      // Decrement available seats
       await db
         .collection("parkingRequests")
         .updateOne(
           { _id: parkingRequest._id },
           { $inc: { seatsAvailable: -1 } }
         );
+
+      // Remove other pending requests from this seeker
+      await db.collection("carpool").deleteMany({
+        seekerId: rideRequest.seekerId,
+        _id: { $ne: new ObjectId(requestId) },
+        status: "pending",
+      });
     }
 
     return {
@@ -444,7 +462,24 @@ export async function getUserRideRequests() {
         { $sort: { createdAt: -1 } },
       ])
       .toArray();
-    console.log("Hello : ", requests);
+
+    // Check if there's an accepted request, then remove other pending requests
+    const hasAccepted = requests.some((req) => req.status === "accepted");
+
+    if (hasAccepted) {
+      // Remove other pending requests if one is accepted
+      await db.collection("carpool").deleteMany({
+        seekerId: session.user.id,
+        status: "pending",
+      });
+
+      // Filter out the pending requests from the response as well
+      const filteredRequests = requests.filter(
+        (req) => req.status !== "pending"
+      );
+      return { requests: filteredRequests };
+    }
+
     return { requests };
   } catch (error) {
     console.error("Error fetching user ride requests:", error);
@@ -461,7 +496,7 @@ function calculateDistance(
 ): number {
   const R = 6371; // Radius of the earth in km
   const dLat = deg2rad(lat2 - lat1);
-  const dLng = deg2rad(lng2 - lng1);
+  const dLng = deg2rad(lat2 - lat1);
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(deg2rad(lat1)) *

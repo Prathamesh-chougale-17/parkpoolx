@@ -29,6 +29,9 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Loader2,
+  Search,
+  Navigation,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +44,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
 
 // Dynamically import Leaflet components with SSR disabled
 const LeafletComponents = dynamic(
@@ -58,6 +62,15 @@ const LeafletComponents = dynamic(
   }
 );
 
+// Helper function moved outside components for global access within file
+function formatLocation(location?: Location): string {
+  if (!location) return "Unknown location";
+  return (
+    location.address ||
+    `Location at ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`
+  );
+}
+
 export default function CarpoolSeeker({
   currentStatus,
 }: {
@@ -73,28 +86,13 @@ export default function CarpoolSeeker({
     useState<CarpoolProvider | null>(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [activeTab, setActiveTab] = useState("find");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [gettingUserLocation, setGettingUserLocation] = useState(false);
 
   useEffect(() => {
-    // Get user's current location
-    if (typeof window !== "undefined" && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const location: Location = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setUserLocation(location);
-          fetchProviders(location);
-        },
-        (error) => {
-          console.error("Error getting location:", error);
-          toast.error("Could not get your location. Please enter it manually.");
-          fetchProviders();
-        }
-      );
-    } else {
-      fetchProviders();
-    }
+    // Initial loading of providers without specific location
+    fetchProviders();
 
     // Get user's ride requests
     fetchUserRequests();
@@ -119,6 +117,14 @@ export default function CarpoolSeeker({
       const result = await getUserRideRequests();
       if (result.requests) {
         setUserRequests(result.requests as RideRequest[]);
+
+        // Check if any request is accepted, if so, we will show that tab
+        const hasAccepted = result.requests.some(
+          (req) => req.status === "accepted"
+        );
+        if (hasAccepted) {
+          setActiveTab("requests");
+        }
       } else if (result.error) {
         console.error(result.error);
         toast.error("Failed to load your ride requests");
@@ -134,6 +140,79 @@ export default function CarpoolSeeker({
   const handleLocationSelect = (location: Location) => {
     setUserLocation(location);
     fetchProviders(location);
+  };
+
+  const getUserLiveLocation = () => {
+    setGettingUserLocation(true);
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location: Location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
+          // Get the address using reverse geocoding
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.lat}&lon=${location.lng}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            if (data && data.display_name) {
+              location.address = data.display_name;
+            }
+          } catch (error) {
+            console.error("Error getting address:", error);
+          }
+
+          setUserLocation(location);
+          fetchProviders(location);
+          setGettingUserLocation(false);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Could not get your location. Please enter it manually.");
+          setGettingUserLocation(false);
+        }
+      );
+    } else {
+      toast.error("Geolocation is not supported by your browser");
+      setGettingUserLocation(false);
+    }
+  };
+
+  const handleSearchLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearchLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          searchQuery
+        )}`
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        const newLocation: Location = {
+          lat: parseFloat(result.lat),
+          lng: parseFloat(result.lon),
+          address: result.display_name,
+        };
+        setUserLocation(newLocation);
+        fetchProviders(newLocation);
+        toast.success("Location found");
+      } else {
+        toast.error("Location not found. Please try another search term.");
+      }
+    } catch (error) {
+      console.error("Error searching location:", error);
+      toast.error("Failed to search location");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   const openRequestDialog = (provider: CarpoolProvider) => {
@@ -211,7 +290,59 @@ export default function CarpoolSeeker({
             <div className="space-y-4">
               <div>
                 <Label htmlFor="location">Your Location</Label>
-                <div className="mt-2">
+
+                {/* Location search and live location button */}
+                <div className="grid gap-2">
+                  <form
+                    onSubmit={handleSearchLocation}
+                    className="flex gap-2 mt-2"
+                  >
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        placeholder="Search for a location..."
+                        className="pl-9"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={searchLoading || !searchQuery.trim()}
+                    >
+                      {searchLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        "Search"
+                      )}
+                    </Button>
+                  </form>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    className="flex gap-2"
+                    onClick={getUserLiveLocation}
+                    disabled={gettingUserLocation}
+                  >
+                    {gettingUserLocation ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Getting location...
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="h-4 w-4" />
+                        Use My Live Location
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="mt-4">
                   <LeafletComponents
                     location={userLocation}
                     onLocationSelect={handleLocationSelect}
@@ -291,12 +422,7 @@ export default function CarpoolSeeker({
               {userLocation ? (
                 <div className="bg-muted p-3 rounded-md flex items-center gap-2 text-sm">
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>
-                    {userLocation.address ||
-                      `${userLocation.lat.toFixed(
-                        5
-                      )}, ${userLocation.lng.toFixed(5)}`}
-                  </span>
+                  <span>{formatLocation(userLocation)}</span>
                 </div>
               ) : (
                 <div className="bg-muted p-3 rounded-md text-sm text-muted-foreground">
@@ -388,10 +514,7 @@ function RequestsList({
                   <div>
                     <p className="font-medium">Your pickup location:</p>
                     <p className="text-muted-foreground">
-                      {request.location.address ||
-                        `(${request.location.lat.toFixed(
-                          5
-                        )}, ${request.location.lng.toFixed(5)})`}
+                      {formatLocation(request.location)}
                     </p>
                   </div>
                 </div>

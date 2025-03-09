@@ -3,17 +3,52 @@ import React, { useState, useEffect } from "react";
 import {
   getProviderRideRequests,
   updateRideRequestStatus,
+  setProviderRoute,
+  Location,
 } from "@/actions/carpool-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Car, Check, MapPin, X } from "lucide-react";
+import { Car, Check, MapPin, X, Map as MapIcon } from "lucide-react";
 import { RideRequest } from "@/actions/carpool-actions";
+import dynamic from "next/dynamic";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Dynamically import the map component to avoid SSR issues
+const ProviderRouteMap = dynamic(
+  () =>
+    import("@/components/car-pooling/leaflet-components").then(
+      (mod) => mod.ProviderRouteMap
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[400px] border rounded-md bg-muted/20 flex items-center justify-center">
+        <p className="text-muted-foreground">Loading map...</p>
+      </div>
+    ),
+  }
+);
 
 export default function CarpoolProvider() {
   const [requests, setRequests] = useState<RideRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState<RideRequest | null>(
+    null
+  );
+  const [isViewingMap, setIsViewingMap] = useState(false);
+  const [providerRoute, setProviderRoute] = useState<{
+    startLocation?: Location;
+    endLocation?: Location;
+    route?: Location[];
+  }>({});
 
   useEffect(() => {
     async function fetchRequests() {
@@ -21,6 +56,21 @@ export default function CarpoolProvider() {
         const result = await getProviderRideRequests();
         if (result.requests) {
           setRequests(result.requests as RideRequest[]);
+
+          // Get the first accepted request location for route display
+          const acceptedRequests = result.requests.filter(
+            (req) => req.status === "accepted"
+          );
+
+          if (result.providerData) {
+            // Assuming providerData contains route information
+            const { startLocation, endLocation, route } = result.providerData;
+            setProviderRoute({
+              startLocation,
+              endLocation,
+              route,
+            });
+          }
         } else if (result.error) {
           console.error(result.error);
         }
@@ -60,20 +110,121 @@ export default function CarpoolProvider() {
     }
   }
 
+  function handleViewLocation(request: RideRequest) {
+    setSelectedRequest(request);
+    setIsViewingMap(true);
+  }
+
+  // Get passenger locations from accepted requests
+  const passengerLocations = requests
+    .filter((req) => req.status === "accepted")
+    .map((req) => req.location);
+
+  // Add this helper function inside the component
+  function formatLocation(location?: Location): string {
+    if (!location) return "Unknown location";
+    return (
+      location.address ||
+      `Location at ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ride Requests</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <RideRequestsList
-          requests={requests}
-          onAccept={handleAccept}
-          onReject={handleReject}
-          loading={loading}
-        />
-      </CardContent>
-    </Card>
+    <>
+      <Tabs defaultValue="requests">
+        <TabsList className="mb-4">
+          <TabsTrigger value="requests">Ride Requests</TabsTrigger>
+          <TabsTrigger value="route">Your Route</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="requests">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ride Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RideRequestsList
+                requests={requests}
+                onAccept={handleAccept}
+                onReject={handleReject}
+                onViewLocation={handleViewLocation}
+                loading={loading}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="route">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Carpool Route</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <ProviderRouteMap
+                  startLocation={providerRoute.startLocation}
+                  endLocation={providerRoute.endLocation}
+                  route={providerRoute.route}
+                  passengerLocations={passengerLocations}
+                />
+
+                <div className="mt-4">
+                  <h3 className="text-lg font-medium mb-2">
+                    Passenger Pickup Points
+                  </h3>
+                  {passengerLocations.length > 0 ? (
+                    <div className="space-y-2">
+                      {passengerLocations.map((loc, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2 bg-muted/50 p-3 rounded-md"
+                        >
+                          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <span>{formatLocation(loc)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      No passengers added to your route yet
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialog to show request location on map */}
+      <Dialog open={isViewingMap} onOpenChange={setIsViewingMap}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedRequest?.seekerDetails?.name}'s Location
+            </DialogTitle>
+          </DialogHeader>
+          <div className="pt-4">
+            {selectedRequest && (
+              <div className="space-y-4">
+                <ProviderRouteMap
+                  startLocation={providerRoute.startLocation}
+                  endLocation={providerRoute.endLocation}
+                  route={providerRoute.route}
+                  passengerLocations={[selectedRequest.location]}
+                />
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                    <span>{formatLocation(selectedRequest.location)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -82,11 +233,13 @@ function RideRequestsList({
   requests,
   onAccept,
   onReject,
+  onViewLocation,
   loading,
 }: {
   requests: RideRequest[];
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
+  onViewLocation: (request: RideRequest) => void;
   loading: boolean;
 }) {
   if (loading) {
@@ -135,15 +288,14 @@ function RideRequestsList({
                         &quot;{request.message}&quot;
                       </p>
                     )}
-                    <div className="flex items-center mt-1 text-xs text-muted-foreground">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      <span>
-                        {request.location.address ||
-                          `(${request.location.lat.toFixed(
-                            5
-                          )}, ${request.location.lng.toFixed(5)})`}
-                      </span>
-                    </div>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-xs flex items-center mt-1"
+                      onClick={() => onViewLocation(request)}
+                    >
+                      <MapIcon className="h-3 w-3 mr-1" />
+                      View pickup location
+                    </Button>
                   </div>
                 </div>
                 <div className="flex space-x-2 mt-3 sm:mt-0">
@@ -190,7 +342,7 @@ function RideRequestsList({
                     <p className="font-medium text-sm">
                       {request.seekerDetails?.name}
                     </p>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <Badge
                         variant={
                           request.status === "accepted"
@@ -203,12 +355,22 @@ function RideRequestsList({
                           ? "Accepted"
                           : "Rejected"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground ml-2">
+                      <span className="text-xs text-muted-foreground">
                         {new Date(request.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
                 </div>
+                {request.status === "accepted" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewLocation(request)}
+                  >
+                    <MapIcon className="h-4 w-4 mr-1" />
+                    View Location
+                  </Button>
+                )}
               </div>
             ))}
           </div>

@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { submitParkingRequest } from "@/actions/request-action";
 import dynamic from "next/dynamic";
 import { Location } from "@/actions/carpool-actions";
-import { MapPin } from "lucide-react";
+import { MapPin, Search, Navigation, Loader2 } from "lucide-react";
 
 // Dynamically import LeafletComponents with SSR disabled
 const LeafletComponents = dynamic(
@@ -142,11 +142,23 @@ const DESTINATION_LOCATION = {
   address: "Pune, Maharashtra, India",
 };
 
+// Add this helper function at the beginning of the component
+const formatLocation = (location?: Location): string => {
+  if (!location) return "No location selected";
+  return (
+    location.address ||
+    `Location at ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`
+  );
+};
+
 // Main component
 export default function RequestParkingPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [gettingUserLocation, setGettingUserLocation] = useState(false);
 
   // Default form values
   const defaultValues: Partial<ParkingFormValues> = {
@@ -170,6 +182,81 @@ export default function RequestParkingPage() {
   const handleLocationSelect = (location: Location) => {
     setUserLocation(location);
     form.setValue("startLocation", location, { shouldValidate: true });
+  };
+
+  // Get user's live location
+  const getUserLiveLocation = () => {
+    setGettingUserLocation(true);
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const location: Location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
+          // Get the address using reverse geocoding
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.lat}&lon=${location.lng}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            if (data && data.display_name) {
+              location.address = data.display_name;
+            }
+          } catch (error) {
+            console.error("Error getting address:", error);
+          }
+
+          setUserLocation(location);
+          form.setValue("startLocation", location, { shouldValidate: true });
+          setGettingUserLocation(false);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          toast.error("Could not get your location. Please enter it manually.");
+          setGettingUserLocation(false);
+        }
+      );
+    } else {
+      toast.error("Geolocation is not supported by your browser");
+      setGettingUserLocation(false);
+    }
+  };
+
+  // Handle location search
+  const handleSearchLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearchLoading(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          searchQuery
+        )}`
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const result = data[0];
+        const newLocation: Location = {
+          lat: parseFloat(result.lat),
+          lng: parseFloat(result.lon),
+          address: result.display_name,
+        };
+        setUserLocation(newLocation);
+        form.setValue("startLocation", newLocation, { shouldValidate: true });
+        toast.success("Location found");
+      } else {
+        toast.error("Location not found. Please try another search term.");
+      }
+    } catch (error) {
+      console.error("Error searching location:", error);
+      toast.error("Failed to search location");
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
   async function onSubmit(data: ParkingFormValues) {
@@ -326,7 +413,56 @@ export default function RequestParkingPage() {
                     <FormItem>
                       <FormLabel>Your Starting Location</FormLabel>
                       <FormControl>
-                        <div className="mt-1">
+                        <div className="mt-1 space-y-2">
+                          {/* Location search form */}
+
+                          <div className="relative flex-1">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="text"
+                              placeholder="Search for a location..."
+                              className="pl-9"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            onClick={handleSearchLocation}
+                            disabled={searchLoading || !searchQuery.trim()}
+                          >
+                            {searchLoading ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Searching...
+                              </>
+                            ) : (
+                              "Search"
+                            )}
+                          </Button>
+
+                          {/* Use my live location button */}
+                          <Button
+                            variant="outline"
+                            type="button"
+                            className="flex gap-2 w-full"
+                            onClick={getUserLiveLocation}
+                            disabled={gettingUserLocation}
+                          >
+                            {gettingUserLocation ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Getting location...
+                              </>
+                            ) : (
+                              <>
+                                <Navigation className="h-4 w-4" />
+                                Use My Live Location
+                              </>
+                            )}
+                          </Button>
+
+                          {/* Map component */}
                           <LeafletComponents
                             location={userLocation}
                             onLocationSelect={handleLocationSelect}
@@ -334,8 +470,8 @@ export default function RequestParkingPage() {
                         </div>
                       </FormControl>
                       <FormDescription>
-                        Click on the map to set your pickup location or allow
-                        automatic detection
+                        Click on the map to set your pickup location or use the
+                        search options above
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -346,7 +482,7 @@ export default function RequestParkingPage() {
                   <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div>
                     <p className="font-medium">
-                      Destination: {DESTINATION_LOCATION.address}
+                      Destination: {formatLocation(DESTINATION_LOCATION)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       This is the fixed destination for all carpooling services.
