@@ -179,8 +179,23 @@ export default function CarpoolProvider() {
                           key={idx}
                           className="flex items-start gap-2 bg-muted/50 p-3 rounded-md"
                         >
-                          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                          <span>{formatLocation(loc)}</span>
+                          <MapPin className="h-4 w-4 text-muted-foreground mt-2" />
+                          <span>
+                            View on Google Maps{" "}
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${loc.lat},${loc.lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button
+                                variant="link"
+                                className="cursor-pointer"
+                                size="sm"
+                              >
+                                View
+                              </Button>
+                            </a>
+                          </span>
                         </div>
                       ))}
                     </div>
