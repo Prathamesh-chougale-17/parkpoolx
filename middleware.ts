@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 const PUBLICROUTES = [
   "/login",
   "/signup",
+  "/forgot-password",
   "/",
   "/.jpg",
   "/.jpeg",

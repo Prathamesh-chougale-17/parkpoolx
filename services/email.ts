@@ -79,4 +79,34 @@ export class EmailService extends OTPService {
       return { success: false, error };
     }
   }
+
+  async sendPasswordResetEmail(email: string) {
+    try {
+      // const otp = await otpService.generateOTP(email);
+      const otp = this.generateOTP();
+      await this.storeOTP(email, otp);
+
+      const html = `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333; text-align: center;">Reset Your Password</h1>
+          <p>Your password reset code is:</p>
+          <div style="background-color: #f4f4f4; padding: 12px; border-radius: 4px; text-align: center; font-size: 24px; letter-spacing: 4px;">
+            <strong>${otp}</strong>
+          </div>
+          <p>This code will expire in 10 minutes.</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: email,
+        subject: "Password Reset Code",
+        html,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error sending password reset email:", error);
+      return { success: false, message: "Failed to send password reset email" };
+    }
+  }
 }

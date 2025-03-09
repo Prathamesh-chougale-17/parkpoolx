@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+export const revalidate = 0;
 
 export default async function CarPoolingPage() {
   const { status, error } = await getUserCarpoolStatus();
