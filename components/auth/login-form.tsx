@@ -15,7 +15,6 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
 
 export function LoginForm({
   className,
@@ -23,7 +22,6 @@ export function LoginForm({
 }: React.ComponentPropsWithoutRef<"div">) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -38,13 +36,12 @@ export function LoginForm({
       const result = await signIn("credentials", {
         email,
         password,
-        redirect: false,
+        redirect: true,
+        redirectTo: "/",
       });
 
       if (result?.error) {
         setError("Invalid email or password. Please try again.");
-      } else if (result?.ok) {
-        router.push("/");
       }
     } catch (err) {
       console.error(err);
@@ -86,12 +83,12 @@ export function LoginForm({
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
+                  <Link
+                    href="/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
                   >
                     Forgot your password?
-                  </a>
+                  </Link>
                 </div>
                 <Input
                   id="password"

@@ -282,3 +282,160 @@ export async function verifyCredentials(email: string, password: string) {
     role: user.role || "user",
   };
 }
+
+// Password reset types
+export type PasswordResetEmailState = {
+  email: string;
+  errors?: {
+    email?: string[];
+    _form?: string[];
+  };
+  success?: boolean;
+};
+
+export type PasswordResetFormState = {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  errors?: {
+    password?: string[];
+    confirmPassword?: string[];
+    _form?: string[];
+  };
+  success?: boolean;
+};
+
+// Send password reset email with OTP
+export async function sendPasswordResetEmail(
+  prevState: PasswordResetEmailState,
+  formData: FormData
+) {
+  const email = formData.get("email") as string;
+
+  try {
+    // Validate email
+    const parsedEmail = emailValidator.parse(email);
+
+    // Check if user exists
+    const user = await User.findByEmail(parsedEmail);
+    if (!user) {
+      return {
+        email,
+        errors: {
+          _form: ["No account found with this email address"],
+        },
+      };
+    }
+
+    // Initialize email service
+    const emailService = new EmailService();
+
+    // Send password reset email with OTP
+    const result = await emailService.sendPasswordResetEmail(parsedEmail);
+
+    if (!result.success) {
+      return {
+        email,
+        errors: {
+          _form: ["Failed to send password reset email"],
+        },
+      };
+    }
+
+    return {
+      email,
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    if (error instanceof z.ZodError) {
+      return {
+        email,
+        errors: {
+          email: [error.errors[0].message],
+        },
+      };
+    }
+    return {
+      email,
+      errors: {
+        _form: ["An error occurred while sending the email"],
+      },
+    };
+  }
+}
+
+// Reset password after OTP verification
+export async function resetPassword(
+  prevState: PasswordResetFormState,
+  formData: FormData
+) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  try {
+    // Validate password
+    const passwordSchema = z
+      .object({
+        password: z.string().min(6, "Password must be at least 6 characters"),
+        confirmPassword: z.string().min(6, "Please confirm your password"),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      });
+
+    const validated = passwordSchema.parse({ password, confirmPassword });
+
+    // Find the user
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return {
+        email,
+        password,
+        confirmPassword,
+        errors: {
+          _form: ["User not found"],
+        },
+      };
+    }
+
+    // Update password in database
+    const client = await clientPromise;
+    const db = client.db(process.env.DATABASE_COLLECTION);
+
+    const hashedPassword = await hash(validated.password, 10);
+
+    await db
+      .collection("users")
+      .updateOne({ email }, { $set: { password: hashedPassword } });
+
+    return {
+      email,
+      password: "",
+      confirmPassword: "",
+      success: true,
+    };
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    if (error instanceof z.ZodError) {
+      return {
+        email,
+        password,
+        confirmPassword,
+        errors: {
+          ...error.flatten().fieldErrors,
+        },
+      };
+    }
+    return {
+      email,
+      password,
+      confirmPassword,
+      errors: {
+        _form: ["An error occurred while resetting the password"],
+      },
+    };
+  }
+}
