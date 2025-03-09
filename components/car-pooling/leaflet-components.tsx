@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Location } from "@/actions/carpool-actions";
 import {
   MapContainer,
@@ -337,7 +337,7 @@ export const ProviderRouteMap = ({
   const [displayRoute, setDisplayRoute] = useState<Location[]>([]);
   const [routePath, setRoutePath] = useState<[number, number][]>([]);
   const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]);
-  const [zoomLevel, setZoomLevel] = useState<number>(12);
+  const [zoomLevel] = useState<number>(12);
   const [totalDistance, setTotalDistance] = useState<number>(0);
   const [isMapReady, setIsMapReady] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -486,18 +486,18 @@ export const ProviderRouteMap = ({
 };
 
 // Calculate the total distance of the route
-const calculateTotalDistance = (route: Location[]): number => {
-  let totalDistance = 0;
-  for (let i = 0; i < route.length - 1; i++) {
-    totalDistance += calculateDistance(
-      route[i].lat,
-      route[i].lng,
-      route[i + 1].lat,
-      route[i + 1].lng
-    );
-  }
-  return totalDistance;
-};
+// const calculateTotalDistance = (route: Location[]): number => {
+//   let totalDistance = 0;
+//   for (let i = 0; i < route.length - 1; i++) {
+//     totalDistance += calculateDistance(
+//       route[i].lat,
+//       route[i].lng,
+//       route[i + 1].lat,
+//       route[i + 1].lng
+//     );
+//   }
+//   return totalDistance;
+// };
 
 // Export the components
 export const LeafletComponents = ({

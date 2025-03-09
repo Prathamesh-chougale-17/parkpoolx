@@ -229,7 +229,7 @@ export async function createRideRequest(
     return {
       success: true,
       message: "Ride request sent successfully",
-      requestId: result.insertedId,
+      requestId: result.insertedId.toString(),
     };
   } catch (error) {
     console.error("Error creating ride request:", error);

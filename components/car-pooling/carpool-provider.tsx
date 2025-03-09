@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import {
   getProviderRideRequests,
   updateRideRequestStatus,
-  setProviderRoute,
   Location,
 } from "@/actions/carpool-actions";
 import { Button } from "@/components/ui/button";
@@ -58,9 +57,9 @@ export default function CarpoolProvider() {
           setRequests(result.requests as RideRequest[]);
 
           // Get the first accepted request location for route display
-          const acceptedRequests = result.requests.filter(
-            (req) => req.status === "accepted"
-          );
+          // const acceptedRequests = result.requests.filter(
+          //   (req) => req.status === "accepted"
+          // );
 
           if (result.providerData) {
             // Assuming providerData contains route information
@@ -216,7 +215,7 @@ export default function CarpoolProvider() {
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>
-              {selectedRequest?.seekerDetails?.name}'s Location
+              {selectedRequest?.seekerDetails?.name}&apos;s Location
             </DialogTitle>
           </DialogHeader>
           <div className="pt-4">
