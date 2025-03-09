@@ -200,6 +200,11 @@ function LocationPicker({
 const fetchRoadRoute = async (
   points: Location[]
 ): Promise<[number, number][]> => {
+  if (!points || points.length < 2) {
+    console.error("Not enough points to create a route");
+    return [];
+  }
+
   try {
     // OSRM API expects coordinates as lng,lat (not the usual lat,lng)
     const coordinates = points
@@ -210,12 +215,12 @@ const fetchRoadRoute = async (
     );
 
     if (!response.ok) {
-      throw new Error("Route fetch failed");
+      throw new Error(`Route fetch failed: ${response.status}`);
     }
 
     const data = await response.json();
     if (!data.routes?.[0]?.geometry?.coordinates) {
-      throw new Error("No route found");
+      throw new Error("No route found in response");
     }
 
     // Convert from OSRM format [lng, lat] to Leaflet format [lat, lng]
@@ -311,7 +316,7 @@ const calculateDistance = (
   return R * c; // Distance in km
 };
 
-// Updated ProviderRouteMap component to use realistic routes
+// Updated ProviderRouteMap component with proper loading state and error handling
 export const ProviderRouteMap = ({
   startLocation,
   endLocation,
@@ -334,56 +339,74 @@ export const ProviderRouteMap = ({
   const [mapCenter, setMapCenter] = useState<[number, number]>([51.505, -0.09]);
   const [zoomLevel, setZoomLevel] = useState<number>(12);
   const [totalDistance, setTotalDistance] = useState<number>(0);
+  const [isMapReady, setIsMapReady] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     // Center on start location if available
     if (startLocation) {
       setMapCenter([startLocation.lat, startLocation.lng]);
     }
+  }, [startLocation]);
 
-    // Create an optimized route if no explicit route is provided
+  // Separate effect for route loading to prevent race conditions
+  useEffect(() => {
     const loadRoute = async () => {
-      if (route && route.length > 1) {
-        setDisplayRoute(route);
-        // Get road route for the provided route points
-        const roadPath = await fetchRoadRoute(route);
-        setRoutePath(roadPath);
-        // Calculate the distance based on the fetched road route
-        let distance = 0;
-        for (let i = 0; i < roadPath.length - 1; i++) {
-          distance += calculateDistance(
-            roadPath[i][0],
-            roadPath[i][1],
-            roadPath[i + 1][0],
-            roadPath[i + 1][1]
+      setIsLoading(true);
+      try {
+        if (route && route.length > 1) {
+          setDisplayRoute(route);
+          // Get road route for the provided route points
+          const roadPath = await fetchRoadRoute(route);
+          setRoutePath(roadPath);
+          // Calculate the distance based on the fetched road route
+          let distance = 0;
+          for (let i = 0; i < roadPath.length - 1; i++) {
+            distance += calculateDistance(
+              roadPath[i][0],
+              roadPath[i][1],
+              roadPath[i + 1][0],
+              roadPath[i + 1][1]
+            );
+          }
+          setTotalDistance(distance);
+        } else if (startLocation && endLocation) {
+          const result = await optimizeRoute(
+            startLocation,
+            endLocation,
+            passengerLocations
           );
-        }
-        setTotalDistance(distance);
-      } else if (startLocation && endLocation) {
-        const result = await optimizeRoute(
-          startLocation,
-          endLocation,
-          passengerLocations
-        );
-        setDisplayRoute(result.points);
-        setRoutePath(result.routePath);
+          setDisplayRoute(result.points);
+          setRoutePath(result.routePath);
 
-        // Calculate total distance from the road path
-        let distance = 0;
-        for (let i = 0; i < result.routePath.length - 1; i++) {
-          distance += calculateDistance(
-            result.routePath[i][0],
-            result.routePath[i][1],
-            result.routePath[i + 1][0],
-            result.routePath[i + 1][1]
-          );
+          // Calculate total distance from the road path
+          let distance = 0;
+          for (let i = 0; i < result.routePath.length - 1; i++) {
+            distance += calculateDistance(
+              result.routePath[i][0],
+              result.routePath[i][1],
+              result.routePath[i + 1][0],
+              result.routePath[i + 1][1]
+            );
+          }
+          setTotalDistance(distance);
         }
-        setTotalDistance(distance);
+      } catch (error) {
+        console.error("Error loading route:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadRoute();
+    if (startLocation || route) {
+      loadRoute();
+    }
   }, [startLocation, endLocation, route, passengerLocations]);
+
+  // Map initialization handler
+  const handleMapReady = () => {
+    setIsMapReady(true);
+  };
 
   return (
     <div className="h-[400px] border rounded-md overflow-hidden">
@@ -391,6 +414,7 @@ export const ProviderRouteMap = ({
         center={mapCenter}
         zoom={zoomLevel}
         style={{ height: "100%", width: "100%" }}
+        whenReady={handleMapReady}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -400,19 +424,19 @@ export const ProviderRouteMap = ({
         <MapController center={mapCenter} zoom={zoomLevel} />
 
         {/* Add bounds controller to fit all markers */}
-        {allLocations.length > 0 && (
+        {allLocations.length > 0 && isMapReady && (
           <MapBoundsController locations={allLocations} />
         )}
 
         {/* Start location */}
-        {startLocation && (
+        {startLocation && isMapReady && (
           <Marker position={[startLocation.lat, startLocation.lng]}>
             <Popup>Start: {formatLocationDisplay(startLocation)}</Popup>
           </Marker>
         )}
 
         {/* End location */}
-        {endLocation && (
+        {endLocation && isMapReady && (
           <Marker position={[endLocation.lat, endLocation.lng]} icon={BlueIcon}>
             <Popup>End: {formatLocationDisplay(endLocation)}</Popup>
           </Marker>
@@ -420,6 +444,7 @@ export const ProviderRouteMap = ({
 
         {/* Passenger locations */}
         {passengerLocations &&
+          isMapReady &&
           passengerLocations.map((loc, idx) => (
             <Marker
               key={`passenger-${idx}`}
@@ -430,8 +455,8 @@ export const ProviderRouteMap = ({
             </Marker>
           ))}
 
-        {/* Road route path */}
-        {routePath.length > 1 && (
+        {/* Road route path - Only render when not loading and route exists */}
+        {routePath.length > 1 && !isLoading && isMapReady && (
           <Polyline
             positions={routePath}
             color="blue"
@@ -439,30 +464,22 @@ export const ProviderRouteMap = ({
             opacity={0.7}
           />
         )}
-
-        {/* Add markers for stops along the route for better visibility */}
-        {displayRoute.length > 2 &&
-          displayRoute.slice(1, -1).map((point, index) => (
-            <Marker
-              key={`route-stop-${index}`}
-              position={[point.lat, point.lng]}
-              icon={GreenIcon}
-            >
-              <Popup>
-                Stop {index + 1}: {formatLocationDisplay(point)}
-              </Popup>
-            </Marker>
-          ))}
       </MapContainer>
 
-      {displayRoute.length > 2 && (
-        <div className="bg-muted/50 p-2 text-xs">
-          <p className="font-medium">Efficient route calculated</p>
-          <p className="text-muted-foreground">
-            {displayRoute.length - 2} pickup points • Total distance:{" "}
-            {totalDistance.toFixed(1)} km
-          </p>
+      {isLoading ? (
+        <div className="bg-muted/50 p-2 text-xs text-center">
+          <p>Loading route...</p>
         </div>
+      ) : (
+        displayRoute.length > 2 && (
+          <div className="bg-muted/50 p-2 text-xs">
+            <p className="font-medium">Efficient route calculated</p>
+            <p className="text-muted-foreground">
+              {displayRoute.length - 2} pickup points • Total distance:{" "}
+              {totalDistance.toFixed(1)} km
+            </p>
+          </div>
+        )
       )}
     </div>
   );
