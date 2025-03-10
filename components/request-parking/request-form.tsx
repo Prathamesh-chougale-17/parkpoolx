@@ -294,7 +294,7 @@ export default function RequestParkingPage() {
     <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">
-          Book Your Parking Slot
+          Request for a Parking Slot
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -309,7 +309,9 @@ export default function RequestParkingPage() {
               name="departTimeFromHome"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Arrival Time</FormLabel>
+                  <FormLabel>
+                    Time to Depart from your start of journey location
+                  </FormLabel>
                   <FormControl>
                     <TimePicker
                       value={field.value}
@@ -327,7 +329,7 @@ export default function RequestParkingPage() {
               name="departureTimeFromOffice"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Departure Time</FormLabel>
+                  <FormLabel>Time to Depart from office</FormLabel>
                   <FormControl>
                     <TimePicker
                       value={field.value}

@@ -190,21 +190,23 @@ export async function registerUser(
   prevState: RegisterUserState,
   formData: FormData
 ): Promise<RegisterUserState> {
-  const validatedFields = registerSchema.safeParse({
-    email: formData.get("email"),
-    name: formData.get("name"),
-    password: formData.get("password"),
-    confirmPassword: formData.get("confirmPassword"),
-    birthDate: formData.get("birthDate"),
-    companyCode: formData.get("companyCode") || "",
-    phoneNumber: formData.get("phoneNumber"),
-    location: formData.get("location"),
-    gender: formData.get("gender"),
-  });
+  const formValues = {
+    email: formData.get("email") as string,
+    name: formData.get("name") as string,
+    password: formData.get("password") as string,
+    confirmPassword: formData.get("confirmPassword") as string,
+    birthDate: formData.get("birthDate") as string,
+    companyCode: (formData.get("companyCode") as string) || "",
+    phoneNumber: formData.get("phoneNumber") as string,
+    location: formData.get("location") as string,
+    gender: formData.get("gender") as string,
+  };
+
+  const validatedFields = registerSchema.safeParse(formValues);
 
   if (!validatedFields.success) {
     return {
-      ...prevState,
+      ...formValues,
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
@@ -239,7 +241,7 @@ export async function registerUser(
 
     if (existingUser) {
       return {
-        ...prevState,
+        ...formValues,
         errors: {
           _form: ["User with this email already exists"],
         },
@@ -248,9 +250,6 @@ export async function registerUser(
 
     await db.collection("users").insertOne(userData);
 
-    // Here, you would typically store the user in your database
-    // For example: await db.user.create({ data: userData });
-
     return {
       ...validatedFields.data,
       success: true,
@@ -258,7 +257,7 @@ export async function registerUser(
   } catch (error) {
     console.error("Error registering user:", error);
     return {
-      ...prevState,
+      ...formValues,
       errors: {
         _form: ["An error occurred during registration. Please try again."],
       },
